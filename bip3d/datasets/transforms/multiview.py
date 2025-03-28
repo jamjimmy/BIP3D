@@ -46,13 +46,15 @@ class MultiViewPipeline(BaseTransform):
         extrinsics = []
         depth_imgs = []
         trans_mat = []
-        
+        slam3r_feature_list = []
         total_n = len(results["img_path"])
         sample_n = min(max(self.n_images, total_n), self.max_n_images)
         ids = sample(total_n, sample_n, self.ordered)
         for i in ids.tolist():
             _results = dict()
             _results["img_path"] = results["img_path"][i]
+            if 'slam3r_feature' in results:
+                _results["slam3r_feature"] = results["slam3r_feature"][i]
             if "depth_img_path" in results:
                 _results["depth_img_path"] = results["depth_img_path"][i]
                 if isinstance(results["depth_cam2img"], list):
@@ -68,6 +70,8 @@ class MultiViewPipeline(BaseTransform):
             if "img" in _results:
                 imgs.append(_results["img"])
                 img_paths.append(_results["img_path"])
+            if "slam3r_feature" in _results:
+                slam3r_feature_list.append(_results["slam3r_feature"])
             if "depth_img" in _results:
                 depth_imgs.append(_results["depth_img"])
             if "points" in _results:
@@ -82,7 +86,7 @@ class MultiViewPipeline(BaseTransform):
             if "trans_mat" in _results:
                 trans_mat.append(_results["trans_mat"])
         for key in _results.keys():
-            if key not in ["img", "points", "img_path"]:
+            if key not in ["img", "points", "img_path", "slam3r_feature"]:
                 results[key] = _results[key]
         if len(imgs):
             if self.rotate_3rscan and "3rscan" in img_paths[0]:
@@ -101,6 +105,8 @@ class MultiViewPipeline(BaseTransform):
                 results["ori_shape"] = results["ori_shape"][::-1]
             results["img"] = imgs
             results["img_path"] = img_paths
+        if len(slam3r_feature_list):
+            results["slam3r_feature"] = slam3r_feature_list
         if len(depth_imgs):
             if self.rotate_3rscan and "3rscan" in img_paths[0]:
                 depth_imgs = [np.transpose(x, (1, 0)) for x in depth_imgs]

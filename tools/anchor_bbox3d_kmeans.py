@@ -3,7 +3,8 @@ import pickle
 import tqdm
 from sklearn.cluster import KMeans
 import numpy as np
-
+import sys
+sys.path.insert(0, './')
 from bip3d.structures.bbox_3d import EulerDepthInstance3DBoxes
 
 
@@ -56,9 +57,9 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(
         description='anchor bbox3d kmeans for embodiedscan dataset')
-    parser.add_argument("ann_file")
+    parser.add_argument("--ann_file")
     parser.add_argument("--output_file")
-    parser.add_argument("--z_min", defaule=-0.2)
-    parser.add_argument("--z_max", defaule=3)
+    parser.add_argument("--z_min", default=-0.2)
+    parser.add_argument("--z_max", default=3)
     args = parser.parse_args()
     kmeans(args.ann_file, args.output_file, args.z_min, args.z_max)

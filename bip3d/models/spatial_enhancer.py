@@ -54,6 +54,11 @@ class DepthFusionSpatialEnhancer(BaseModel):
             nn.Linear(fusion_dim, self.embed_dims),
         )
         self.fusion_norm = nn.LayerNorm(self.embed_dims)
+        # self.fc_slam3r = nn.Linear(200704, 5440*64)
+        # self.fc1 = nn.Linear(200704, 1024)  # 先降维到 8192
+        # self.fc2 = nn.Linear(1024, 5440 * 32)  # 再映射到最终维度
+        # self.relu = nn.ReLU()
+
 
     def forward(
         self,
@@ -88,7 +93,16 @@ class DepthFusionSpatialEnhancer(BaseModel):
             depth_prob = self.pts_prob_fc(feature_2d).softmax(dim=-1)
             feature_fused = [feature_2d]
 
-        pts_feature = self.pts_fc(pts)
+        pts_feature = self.pts_fc(pts) # [1, 50, 5440, 64, 32]
+        # slam3r_feature = batch_inputs['slam3r_feature'][0].unsqueeze(0)
+        # slam3r_feature = slam3r_feature.view(-1, 1024, 14, 14)
+        # slam3r_feature_fc = self.fc(slam3r_feature)
+        # slam3r_feature_fc = slam3r_feature_fc.view(-1, 5440, 64, 32)
+        # pts_feature = slam3r_feature_fc
+        # slam3r_feature = self.relu(self.fc1(slam3r_feature))
+        # slam3r_feature = self.fc2(slam3r_feature).view(depth_prob.shape[0], depth_prob.shape[1], 5440, 32)
+
+        # pts_feature = (depth_prob * slam3r_feature)
         pts_feature = (depth_prob.unsqueeze(dim=-1) * pts_feature).sum(dim=-2)
         feature_fused.append(pts_feature)
         feature_fused = torch.cat(feature_fused, dim=-1)

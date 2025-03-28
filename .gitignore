@@ -106,3 +106,10 @@ venv.bak/
 
 # VS Code
 .vscode/
+work-dir/*
+.dist_test/*
+submission.pkl
+work-dirs/*
+data/*
+model_checkpoint_grounding.pth
+ckpt/*

@@ -6,8 +6,8 @@ from mmdet.models.detectors.deformable_detr import (
 )
 
 from bip3d.registry import MODELS
-
-
+import torch.nn.functional as F
+import torch
 @MODELS.register_module()
 class BIP3D(BaseDetector):
     def __init__(
@@ -94,8 +94,19 @@ class BIP3D(BaseDetector):
         if self.neck is not None:
             feature_maps = self.neck(feature_maps)
         feature_maps = [x.unflatten(0, (bs, num_cams)) for x in feature_maps]
-
-        input_3d = batch_inputs_dict.get(self.input_3d)
+        slam3r_feature = None
+        
+        slam3r_feature = torch.stack(batch_inputs_dict['slam3r_feature'])
+        B, N, _ = slam3r_feature.shape
+        # print('***************************************')
+        # print(B,N)
+        slam3r_feature = slam3r_feature.view(B, N, 1024, 14 , 14)
+        slam3r_feature = F.pixel_shuffle(slam3r_feature, 32)
+        slam3r_feature = slam3r_feature.view(B, N, 448, 448)
+        slam3r_feature = F.interpolate(slam3r_feature, size=(512, 512), mode='bilinear', align_corners=False)
+        slam3r_feature = slam3r_feature.unsqueeze(2)
+        # input_3d = batch_inputs_dict.get(self.input_3d)
+        input_3d = slam3r_feature
         if self.backbone_3d is not None and input_3d is not None:
             if self.input_3d == "depth_img" and input_3d.dim() == 5:
                 assert input_3d.shape[1] == num_cams

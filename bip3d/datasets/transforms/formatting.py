@@ -178,11 +178,13 @@ class Pack3DDetInputs(BaseTransform):
                     img = to_tensor(
                         np.ascontiguousarray(img.transpose(2, 0, 1)))
                 results[key] = img
-
+        for key in ['slam3r_feature']:
+            imgs = np.stack(results[key])
+            results[key] = imgs
         for key in [
                 'proposals', 'gt_bboxes', 'gt_bboxes_ignore', 'gt_labels',
                 'gt_bboxes_labels', 'attr_labels', 'pts_instance_mask',
-                'pts_semantic_mask', 'centers_2d', 'depths', 'gt_labels_3d'
+                'pts_semantic_mask', 'centers_2d', 'depths', 'gt_labels_3d', 'slam3r_feature'
         ]:
             if key not in results:
                 continue
@@ -214,7 +216,7 @@ class Pack3DDetInputs(BaseTransform):
         gt_instances = InstanceData()
         gt_pts_seg = PointData()
         gt_depth_map = PixelData()
-
+        # slam3r_feature = InstanceData()
         data_metas = {}
         for key in self.meta_keys:
             if key in results:
@@ -246,6 +248,8 @@ class Pack3DDetInputs(BaseTransform):
             if key in results:
                 if key in self.INPUTS_KEYS:
                     inputs[key] = results[key]
+                elif key == 'slam3r_feature':
+                    inputs[key] = results[key]
                 elif key in self.INSTANCEDATA_3D_KEYS:
                     gt_instances_3d[self._remove_prefix(key)] = results[key]
                 elif key in self.INSTANCEDATA_2D_KEYS:
@@ -268,6 +272,8 @@ class Pack3DDetInputs(BaseTransform):
                     else:
                         data_sample.gt_occupancy_masks = to_tensor(
                             results['gt_occupancy_masks'])
+                # elif key == 'slam3r_feature':
+                #     slam3r_feature['slam3r_feature'] = results['slam3r_feature']
                 else:
                     raise NotImplementedError(f'Please modified '
                                               f'`Pack3DDetInputs` '
@@ -278,7 +284,7 @@ class Pack3DDetInputs(BaseTransform):
         data_sample.gt_instances = gt_instances
         data_sample.gt_pts_seg = gt_pts_seg
         data_sample.gt_depth_map = gt_depth_map
-
+        # data_sample.slam3r_feature = slam3r_feature
         if 'eval_ann_info' in results:
             data_sample.eval_ann_info = results['eval_ann_info']
         else:

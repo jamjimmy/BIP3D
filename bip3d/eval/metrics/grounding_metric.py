@@ -209,6 +209,7 @@ class GroundingMetric(BaseMetric):
             return ret_dict
 
         ret_dict = self.ground_eval(annotations, preds)
+        # print(ret_dict)
         for part in ["scannet", "3rscan", "matterport3d", "arkit"]:
             ann = [x for x in annotations if part in x["scan_id"]]
             pred = [y for x,y in zip(annotations, preds) if part in x["scan_id"]]

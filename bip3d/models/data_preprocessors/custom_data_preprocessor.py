@@ -262,7 +262,8 @@ class CustomDet3DDataPreprocessor(DetDataPreprocessor):
                 for batch_aug in self.batch_augments:
                     imgs, data_samples = batch_aug(imgs, data_samples)
             batch_inputs["imgs"] = imgs
-
+        if 'slam3r_feature' in inputs:
+            batch_inputs['slam3r_feature'] = inputs["slam3r_feature"]
         return {"inputs": batch_inputs, "data_samples": data_samples}
 
     def process_camera_params(self, data_samples):
@@ -270,6 +271,7 @@ class CustomDet3DDataPreprocessor(DetDataPreprocessor):
         extrinsic_list = []
         intrinsic_list = []
         image_wh = []
+        slam3r_feature = []
         for data_sample in data_samples:
             proj_mat = get_proj_mat_by_coord_type(
                 data_sample.metainfo, "DEPTH"
@@ -306,6 +308,7 @@ class CustomDet3DDataPreprocessor(DetDataPreprocessor):
             proj_mat = trans_mat @ proj_mat
             projection_mat.append(proj_mat)
             image_wh.append(data_sample.metainfo["img_shape"][:2])
+            # slam3r_feature.append(data_sample.metainfo["slam3r_feature"])
 
         to_tensor = lambda x: torch.from_numpy(x).cuda().to(torch.float32)
         projection_mat = to_tensor(np.stack(projection_mat))

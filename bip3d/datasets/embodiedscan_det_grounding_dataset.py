@@ -16,6 +16,8 @@ from bip3d.registry import DATASETS
 from bip3d.structures import get_box_type
 from .utils import sample
 
+import re
+
 class_names = (
     'adhesive tape', 'air conditioner', 'alarm', 'album', 'arch', 'backpack',
     'bag', 'balcony', 'ball', 'banister', 'bar', 'barricade', 'baseboard',
@@ -84,6 +86,7 @@ tail_labels = [
     129, 210, 276, 64, 27, 87, 139, 227, 187, 62, 43, 50, 69, 93, 144, 166,
     265, 54, 83, 39
 ]
+
 
 
 @DATASETS.register_module()
@@ -180,6 +183,10 @@ class EmbodiedScanDetGroundingDataset(BaseDataset):
             cam2img = []
 
         extrinsics = []
+        # /mnt/public/yhz/jiangzj/code/3d_understanding/SLAM3R/result_scannet/scene0000_01/preds/slam3r_features.npy
+        scene_name = re.search(r'scene\d{4}_\d{2}', info["images"][0]["img_path"]).group()
+        slam3r_feature = np.load(f'/mnt/public/yhz/jiangzj/code/3d_understanding/SLAM3R/result_scannet/{scene_name}/preds/slam3r_features.npy')
+        info["slam3r_feature"] = []
         for i in range(len(info["images"])):
             img_path = os.path.join(
                 self.data_prefix.get("img_path", ""),
@@ -189,6 +196,9 @@ class EmbodiedScanDetGroundingDataset(BaseDataset):
                 self.data_prefix.get("img_path", ""),
                 info["images"][i]["depth_path"],
             )
+            
+            img_idx = int(os.path.basename(img_path).split('.')[0])
+            info['slam3r_feature'].append(slam3r_feature[int(img_idx/10)])
 
             info["img_path"].append(img_path)
             info["depth_img_path"].append(depth_img_path)
@@ -352,7 +362,13 @@ class EmbodiedScanDetGroundingDataset(BaseDataset):
                 "Annotation must have data_list and metainfo " "keys"
             )
         metainfo = annotations["metainfo"]
-        raw_data_list = annotations["data_list"]
+        raw_data_list = []
+        
+        
+        for item in annotations["data_list"]:
+            if 'scannet' in item["images"][0]["img_path"]:
+                raw_data_list.append(item)
+            
 
         # Meta information load from annotation file will not influence the
         # existed meta information load from `BaseDataset.METAINFO` and
@@ -381,6 +397,8 @@ class EmbodiedScanDetGroundingDataset(BaseDataset):
             data_info = self.parse_data_info(raw_data_info)
             if data_info is None:
                 continue
+            # if 'scannet' not in data_info['scan_id']:
+            #     continue
             assert isinstance(data_info, dict)
             data_list.append(data_info)
 
@@ -432,7 +450,13 @@ class EmbodiedScanDetGroundingDataset(BaseDataset):
             for i in range(self.dataset_length):
                 output.append(ids[int(interval*i)])
             language_annotations = output
-        self.data_list = language_annotations
+        self.data_list = []
+        for item in language_annotations:
+            if 'scene0415_00' in item['scan_id']:
+                self.data_list.append(item)
+            else:
+                pass
+        
         self.scan_id_to_data_idx = {}
         for scan_id in self.scan_ids:
             self.scan_id_to_data_idx[scan_id] = []

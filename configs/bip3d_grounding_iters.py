@@ -1,6 +1,5 @@
 _base_ = ["./default_runtime.py"]
-import sys
-sys.path.insert(0, '/mnt/public/yhz/jiangzj/code/3d_understanding/BIP3D')
+
 import os
 from bip3d.datasets.embodiedscan_det_grounding_dataset import (
     class_names, head_labels, common_labels, tail_labels
@@ -292,20 +291,11 @@ train_pipeline = [
             ),
         ],
         rotate_3rscan=rotate_3rscan,
-        ordered=False,
-    ),
-    dict(
-        type="CategoryGroundingDataPrepare",
-        classes=class_names,
-        filter_others=True,
-        sep_token=sep_token,
-        max_class=128,
-        training=True,
-        z_range=z_range,
+        ordered=True,
     ),
     dict(
         type="Pack3DDetInputs",
-        keys=["img", "depth_img", "gt_bboxes_3d", "gt_labels_3d"],
+        keys=["img", "depth_img", "gt_bboxes_3d", "gt_labels_3d", "slam3r_feature"],
     ),
 ]
 if depth_loss:
@@ -334,15 +324,8 @@ test_pipeline = [
         rotate_3rscan=rotate_3rscan,
     ),
     dict(
-        type="CategoryGroundingDataPrepare",
-        classes=class_names,
-        sep_token=sep_token,
-        training=False,
-        filter_others=False,
-    ),
-    dict(
         type="Pack3DDetInputs",
-        keys=["img", "depth_img", "gt_bboxes_3d", "gt_labels_3d"],
+        keys=["img", "depth_img", "gt_bboxes_3d", "gt_labels_3d", "slam3r_feature"],
     ),
 ]
 
@@ -352,11 +335,21 @@ data_version = "v1"
 if data_version == "v1":
     train_ann_file = "embodiedscan/embodiedscan_infos_train.pkl"
     val_ann_file = "embodiedscan/embodiedscan_infos_val.pkl"
+    train_vg_file = "embodiedscan/embodiedscan_train_vg_all.json"
+    val_vg_file = "embodiedscan/embodiedscan_val_vg_all.json"
+elif data_version == "v1-mini":
+    train_ann_file = "embodiedscan/embodiedscan_infos_train.pkl"
+    val_ann_file = "embodiedscan/embodiedscan_infos_val.pkl"
+    train_vg_file = "embodiedscan/embodiedscan_train_mini_vg.json"
+    val_vg_file = "embodiedscan/embodiedscan_val_mini_vg.json"
 elif data_version == "v2":
     train_ann_file = "embodiedscan-v2/embodiedscan_infos_train.pkl"
     val_ann_file = "embodiedscan-v2/embodiedscan_infos_val.pkl"
-else:
-    assert False
+    train_vg_file = "embodiedscan-v2/embodiedscan_train_vg.json"
+    val_vg_file = "embodiedscan-v2/embodiedscan_val_vg.json"
+
+test_ann_file = "embodiedscan/embodiedscan_infos_test.pkl"
+test_vg_file = "embodiedscan/embodiedscan_test_vg.json"
 
 train_dataset = dict(
     type=dataset_type,
@@ -367,8 +360,11 @@ train_dataset = dict(
     filter_empty_gt=True,
     box_type_3d="Euler-Depth",
     metainfo=metainfo,
+    mode="grounding",
+    vg_file=train_vg_file,
+    num_text=10,
+    sep_token=sep_token,
 )
-
 
 if trainval:
     train_dataset = dict(
@@ -384,27 +380,25 @@ if trainval:
                 filter_empty_gt=True,
                 box_type_3d="Euler-Depth",
                 metainfo=metainfo,
+                mode="grounding",
+                vg_file=val_vg_file,
+                num_text=10,
+                sep_token=sep_token,
             )
-        ]
+        ],
     )
-
 
 train_dataloader = dict(
     batch_size=1,
     num_workers=4 if not DEBUG else 0,
     persistent_workers=False,
     sampler=dict(type="DefaultSampler", shuffle=True),
-    dataset=dict(
-        type="RepeatDataset",
-        times=10,
-        dataset=train_dataset,
-    ),
+    dataset=train_dataset,
 )
 
-    
 val_dataloader = dict(
     batch_size=1,
-    num_workers=4,
+    num_workers=4 if not DEBUG else 0,
     persistent_workers=False,
     drop_last=False,
     sampler=dict(type="DefaultSampler", shuffle=False),
@@ -417,20 +411,72 @@ val_dataloader = dict(
         filter_empty_gt=True,
         box_type_3d="Euler-Depth",
         metainfo=metainfo,
+        mode="grounding",
+        vg_file=val_vg_file,
     ),
 )
-test_dataloader = val_dataloader
+
+test_dataloader = dict(
+    batch_size=1,
+    num_workers=4 if not DEBUG else 0,
+    persistent_workers=False,
+    drop_last=False,
+    sampler=dict(type="DefaultSampler", shuffle=False),
+    dataset=dict(
+        type=dataset_type,
+        data_root=data_root,
+        ann_file=test_ann_file,
+        pipeline=[
+            dict(type="LoadAnnotations3D"),
+            dict(
+                type="MultiViewPipeline",
+                n_images=1,
+                max_n_images=50,
+                ordered=True,
+                transforms=[
+                    dict(type="LoadImageFromFile", backend_args=backend_args),
+                    dict(type="LoadDepthFromFile", backend_args=backend_args),
+                    resize,
+                ],
+                rotate_3rscan=rotate_3rscan,
+            ),
+            dict(
+                type="Pack3DDetInputs",
+                keys=["img", "depth_img", "gt_bboxes_3d", "gt_labels_3d", "slam3r_feature"],
+            ),
+        ],
+        test_mode=True,
+        filter_empty_gt=True,
+        box_type_3d="Euler-Depth",
+        metainfo=metainfo,
+        mode="grounding",
+        vg_file=test_vg_file,
+    ),
+)
 
 val_evaluator = dict(
-    type="IndoorDetMetric",
+    type="GroundingMetric",
     collect_dir="/job_data/.dist_test" if not DEBUG else None,
-    # collect_device="gpu"
 )
-test_evaluator = val_evaluator
 
-max_epochs = 24
+test_evaluator = dict(
+    type="GroundingMetric",
+    collect_dir="./job_data/.dist_test" if not DEBUG else None,
+    format_only=True,
+    submit_info={
+        'method': 'BIP3D',
+        'team': 'robot-lab manipulation team',
+        'authors': ['xuewu lin'],
+        'e-mail': '878585984@qq.com',
+        'institution': 'Horizon',
+        'country': 'China',
+    },
+    result_dir="./job_data" if not DEBUG else "./",
+)
+
+max_epochs = 2
 train_cfg = dict(
-    type="EpochBasedTrainLoop", max_epochs=max_epochs, val_interval=1
+    type="EpochBasedTrainLoop", by_epoch=False, max_iters=10000, val_interval=1
 )
 val_cfg = dict(type="ValLoop")
 test_cfg = dict(type="TestLoop")
@@ -442,7 +488,7 @@ optim_wrapper = dict(
     paramwise_cfg=dict(
         custom_keys={
             "backbone.": dict(lr_mult=0.1),
-            "text_encoder": dict(lr_mult=0.05),
+            # "text_encoder": dict(lr_mult=0.05),
             "absolute_pos_embed": dict(decay_mult=0.0),
         }
     ),
@@ -458,22 +504,22 @@ param_scheduler = [
     dict(
         type="MultiStepLR",
         begin=0,
-        end=max_epochs,
-        by_epoch=True,
-        milestones=[int(max_epochs / 12 * 8), int(max_epochs / 12 * 11)],
+        end=62000,
+        by_epoch=False,
+        milestones=[40000, 55000],
         gamma=0.1,
     ),
 ]
 
 custom_hooks = [dict(type="EmptyCacheHook", after_iter=False)]
 default_hooks = dict(
-    checkpoint=dict(type="CheckpointHook", interval=1, max_keep_ckpts=3),
+    checkpoint=dict(type="CheckpointHook", iby_epoch=False, interval=2000),
 )
 
 vis_backends = [
     dict(
         type="TensorboardVisBackend",
-        save_dir="/job_tboard" if not DEBUG else "./work-dir",
+        save_dir="./job_tboard" if not DEBUG else "./work-dir",
     ),
 ]
 
@@ -483,4 +529,4 @@ visualizer = dict(
     name="visualizer",
 )
 
-load_from = "ckpt/groundingdino_swint_ogc_mmdet-822d7e9d-rename.pth"
+# load_from = "ckpt/bip3d_det.pth"

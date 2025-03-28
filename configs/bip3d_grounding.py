@@ -295,7 +295,7 @@ train_pipeline = [
     ),
     dict(
         type="Pack3DDetInputs",
-        keys=["img", "depth_img", "gt_bboxes_3d", "gt_labels_3d"],
+        keys=["img", "depth_img", "gt_bboxes_3d", "gt_labels_3d", "slam3r_feature"],
     ),
 ]
 if depth_loss:
@@ -325,7 +325,7 @@ test_pipeline = [
     ),
     dict(
         type="Pack3DDetInputs",
-        keys=["img", "depth_img", "gt_bboxes_3d", "gt_labels_3d"],
+        keys=["img", "depth_img", "gt_bboxes_3d", "gt_labels_3d", "slam3r_feature"],
     ),
 ]
 
@@ -348,8 +348,11 @@ elif data_version == "v2":
     train_vg_file = "embodiedscan-v2/embodiedscan_train_vg.json"
     val_vg_file = "embodiedscan-v2/embodiedscan_val_vg.json"
 
-test_ann_file = "embodiedscan/embodiedscan_infos_test.pkl"
-test_vg_file = "embodiedscan/embodiedscan_test_vg.json"
+# test_ann_file = "embodiedscan/embodiedscan_infos_test.pkl"
+# test_vg_file = "embodiedscan/embodiedscan_test_vg.json"
+
+test_ann_file = "embodiedscan/embodiedscan_infos_val.pkl"
+test_vg_file = "embodiedscan/embodiedscan_val_vg_all.json"
 
 train_dataset = dict(
     type=dataset_type,
@@ -442,7 +445,7 @@ test_dataloader = dict(
             ),
             dict(
                 type="Pack3DDetInputs",
-                keys=["img", "depth_img", "gt_bboxes_3d", "gt_labels_3d"],
+                keys=["img", "depth_img", "gt_bboxes_3d", "gt_labels_3d", "slam3r_feature"],
             ),
         ],
         test_mode=True,
@@ -456,13 +459,13 @@ test_dataloader = dict(
 
 val_evaluator = dict(
     type="GroundingMetric",
-    collect_dir="/job_data/.dist_test" if not DEBUG else None,
+    collect_dir="./job_data/.dist_test" if not DEBUG else None,
 )
 
 test_evaluator = dict(
     type="GroundingMetric",
-    collect_dir="/job_data/.dist_test" if not DEBUG else None,
-    format_only=True,
+    collect_dir="./job_data/.dist_test" if not DEBUG else None,
+    format_only=False,
     submit_info={
         'method': 'BIP3D',
         'team': 'robot-lab manipulation team',
@@ -471,7 +474,7 @@ test_evaluator = dict(
         'institution': 'Horizon',
         'country': 'China',
     },
-    result_dir="/job_data" if not DEBUG else "./",
+    result_dir="./job_data" if not DEBUG else "./",
 )
 
 max_epochs = 2
@@ -513,13 +516,13 @@ param_scheduler = [
 
 custom_hooks = [dict(type="EmptyCacheHook", after_iter=False)]
 default_hooks = dict(
-    checkpoint=dict(type="CheckpointHook", interval=1, max_keep_ckpts=3),
+    checkpoint=dict(type="CheckpointHook", by_epoch=False, interval=1000, max_keep_ckpts=3),
 )
 
 vis_backends = [
     dict(
-        type="TensorboardVisBackend",
-        save_dir="/job_tboard" if not DEBUG else "./work-dir",
+        type='WandbVisBackend',
+        save_dir="./job_tboard" if not DEBUG else "./work-dir",
     ),
 ]
 
@@ -529,4 +532,4 @@ visualizer = dict(
     name="visualizer",
 )
 
-load_from = "ckpt/bip3d_det.pth"
+# load_from = "ckpt/bip3d_det.pth"
