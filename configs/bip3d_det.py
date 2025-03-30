@@ -1,6 +1,6 @@
 _base_ = ["./default_runtime.py"]
 import sys
-sys.path.insert(0, '/mnt/public/yhz/jiangzj/code/3d_understanding/BIP3D')
+sys.path.insert(0, './BIP3D')
 import os
 from bip3d.datasets.embodiedscan_det_grounding_dataset import (
     class_names, head_labels, common_labels, tail_labels

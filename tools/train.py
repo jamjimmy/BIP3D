@@ -2,7 +2,7 @@
 import time
 import os
 import sys
-sys.path.insert(0, '/mnt/public/yhz/jiangzj/code/3d_understanding/BIP3D')
+sys.path.insert(0, './BIP3D')
 def wait_before_import_config():
     t = int(os.environ.get('LOCAL_RANK', 0))
     time.sleep(t * 0.5)
