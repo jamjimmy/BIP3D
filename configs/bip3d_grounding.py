@@ -351,8 +351,8 @@ elif data_version == "v2":
 # test_ann_file = "embodiedscan/embodiedscan_infos_test.pkl"
 # test_vg_file = "embodiedscan/embodiedscan_test_vg.json"
 
-test_ann_file = "embodiedscan/embodiedscan_infos_val.pkl"
-test_vg_file = "embodiedscan/embodiedscan_val_vg_all.json"
+test_ann_file = "embodiedscan/embodiedscan_infos_test.pkl"
+test_vg_file = "embodiedscan/embodiedscan_test_vg.json"
 
 train_dataset = dict(
     type=dataset_type,
@@ -532,4 +532,4 @@ visualizer = dict(
     name="visualizer",
 )
 
-# load_from = "ckpt/bip3d_det.pth"
+load_from = "ckpt/model_checkpoint_grounding.pth"

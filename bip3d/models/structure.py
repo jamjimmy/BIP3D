@@ -61,6 +61,13 @@ class BIP3D(BaseDetector):
             self.grid_mask = GridMask(
                 True, True, rotate=1, offset=False, ratio=0.5, mode=1, prob=0.7
             )
+        self.slam3r_proj = nn.Sequential(
+            nn.Conv2d(4, 16, kernel_size=3, padding=1),  # [h, w, 4] -> [h, w, 16]
+            nn.ReLU(),
+            nn.Conv2d(16, 32, kernel_size=3, padding=1), # [h, w, 16] -> [h, w, 32]
+            nn.ReLU(),
+            nn.Conv2d(32, 1, kernel_size=1) # [h, w, 32] -> [h, w, 1]
+        )
 
     def init_weights(self):
         """Initialize weights for Transformer and other components."""
@@ -100,11 +107,13 @@ class BIP3D(BaseDetector):
         B, N, _ = slam3r_feature.shape
         # print('***************************************')
         # print(B,N)
-        slam3r_feature = slam3r_feature.view(B, N, 1024, 14 , 14) # [1, 50, 1024, 14, 14]
-        slam3r_feature = F.pixel_shuffle(slam3r_feature, 32) 
-        slam3r_feature = slam3r_feature.view(B, N, 448, 448)
+        slam3r_feature = slam3r_feature.view(-1, 1024, 14 , 14) # [50, 1024, 14, 14]
+        slam3r_feature = F.pixel_shuffle(slam3r_feature, upscale_factor=16)  # [B*N, 4, 224, 224]
+        slam3r_feature = self.slam3r_proj(slam3r_feature)  # [B*N, 1, 224, 224]
+        
+
         slam3r_feature = F.interpolate(slam3r_feature, size=(512, 512), mode='bilinear', align_corners=False)
-        slam3r_feature = slam3r_feature.unsqueeze(2)
+        slam3r_feature = slam3r_feature.view(B, N, 1, 512, 512)
 
         # input_3d = batch_inputs_dict.get(self.input_3d) # [1, 50, 1, 512, 512]
 
@@ -115,9 +124,9 @@ class BIP3D(BaseDetector):
                 input_3d = input_3d.flatten(end_dim=1)
             if self.use_depth_grid_mask and self.training:
                 input_3d = self.grid_mask(input_3d)
-            feature_3d = self.backbone_3d(input_3d)
+            feature_3d = self.backbone_3d(input_3d) # [50, 8, 64, 64] [50, 16, 32, 32] [50, 32, 16, 16]
             if self.neck_3d is not None:
-                feature_3d = self.neck_3d(feature_3d)
+                feature_3d = self.neck_3d(feature_3d) # [50, 32, 64, 64] [50, 32, 32, 32] [50, 32, 16, 16] [50,32,8,8]
             feature_3d = [x.unflatten(0, (bs, num_cams)) for x in feature_3d]
         else:
             feature_3d = None
