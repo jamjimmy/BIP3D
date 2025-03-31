@@ -267,6 +267,48 @@ if cam_standardization:
 else:
     resize = dict(type="CustomResize", scale=image_wh, keep_ratio=False)
 
+train_pipeline = [
+    dict(type="LoadAnnotations3D"),
+    dict(
+        type="MultiViewPipeline",
+        n_images=1,
+        max_n_images=18,
+        transforms=[
+            dict(type="LoadImageFromFile", backend_args=backend_args),
+            dict(type="LoadDepthFromFile", backend_args=backend_args),
+            resize,
+            dict(
+                type="ResizeCropFlipImage",
+                data_aug_conf={
+                    "resize_lim": (1.0, 1.0),
+                    "final_dim": image_wh,
+                    "bot_pct_lim": (0.0, 0.05),
+                    "rot_lim": (0, 0),
+                    "H": image_wh[1],
+                    "W": image_wh[0],
+                    "rand_flip": False,
+                },
+            ),
+        ],
+        rotate_3rscan=rotate_3rscan,
+        ordered=True,
+    ),
+    dict(
+        type="Pack3DDetInputs",
+        keys=["img", "depth_img", "gt_bboxes_3d", "gt_labels_3d", "slam3r_feature"],
+    ),
+]
+if depth_loss:
+    train_pipeline.append(
+        dict(
+            type="DepthProbLabelGenerator",
+            origin_stride=4,
+            min_depth=min_depth,
+            max_depth=max_depth,
+            num_depth=num_depth,
+        ),
+    )
+
 test_pipeline = [
     dict(type="LoadAnnotations3D"),
     dict(
@@ -283,7 +325,7 @@ test_pipeline = [
     ),
     dict(
         type="Pack3DDetInputs",
-        keys=["img", "depth_img", "gt_bboxes_3d", "gt_labels_3d"],
+        keys=["img", "depth_img", "gt_bboxes_3d", "gt_labels_3d", "slam3r_feature"],
     ),
 ]
 
@@ -292,9 +334,9 @@ data_version = "v1"
 
 if data_version == "v1":
     train_ann_file = "embodiedscan/embodiedscan_infos_train.pkl"
-    val_ann_file = "embodiedscan/embodiedscan_infos_val.pkl"
+    val_ann_file = "embodiedscan/embodiedscan_infos_train.pkl"
     train_vg_file = "embodiedscan/embodiedscan_train_vg_all.json"
-    val_vg_file = "embodiedscan/embodiedscan_val_vg_all.json"
+    val_vg_file = "embodiedscan/embodiedscan_train_vg_all.json"
 elif data_version == "v1-mini":
     train_ann_file = "embodiedscan/embodiedscan_infos_train.pkl"
     val_ann_file = "embodiedscan/embodiedscan_infos_val.pkl"
@@ -306,15 +348,124 @@ elif data_version == "v2":
     train_vg_file = "embodiedscan-v2/embodiedscan_train_vg.json"
     val_vg_file = "embodiedscan-v2/embodiedscan_val_vg.json"
 
-test_ann_file = "embodiedscan/embodiedscan_infos_test.pkl"
-test_vg_file = "embodiedscan/embodiedscan_test_vg.json"
+# test_ann_file = "embodiedscan/embodiedscan_infos_test.pkl"
+# test_vg_file = "embodiedscan/embodiedscan_test_vg.json"
 
+test_ann_file = "embodiedscan/embodiedscan_infos_train.pkl"
+test_vg_file = "embodiedscan/embodiedscan_train_vg_all.json"
 
+train_dataset = dict(
+    type=dataset_type,
+    data_root=data_root,
+    ann_file=train_ann_file,
+    pipeline=train_pipeline,
+    test_mode=False,
+    filter_empty_gt=True,
+    box_type_3d="Euler-Depth",
+    metainfo=metainfo,
+    mode="grounding",
+    vg_file=train_vg_file,
+    num_text=10,
+    sep_token=sep_token,
+)
+
+if trainval:
+    train_dataset = dict(
+        type="ConcatDataset",
+        datasets=[
+            train_dataset,
+            dict(
+                type=dataset_type,
+                data_root=data_root,
+                ann_file=val_ann_file,
+                pipeline=train_pipeline,
+                test_mode=False,
+                filter_empty_gt=True,
+                box_type_3d="Euler-Depth",
+                metainfo=metainfo,
+                mode="grounding",
+                vg_file=val_vg_file,
+                num_text=10,
+                sep_token=sep_token,
+            )
+        ],
+    )
+
+train_dataloader = dict(
+    batch_size=1,
+    num_workers=4 if not DEBUG else 0,
+    persistent_workers=False,
+    sampler=dict(type="DefaultSampler", shuffle=True),
+    dataset=train_dataset,
+)
+
+val_dataloader = dict(
+    batch_size=1,
+    num_workers=4 if not DEBUG else 0,
+    persistent_workers=False,
+    drop_last=False,
+    sampler=dict(type="DefaultSampler", shuffle=False),
+    dataset=dict(
+        type=dataset_type,
+        data_root=data_root,
+        ann_file=val_ann_file,
+        pipeline=test_pipeline,
+        test_mode=True,
+        filter_empty_gt=True,
+        box_type_3d="Euler-Depth",
+        metainfo=metainfo,
+        mode="grounding",
+        vg_file=val_vg_file,
+    ),
+)
+
+test_dataloader = dict(
+    batch_size=1,
+    num_workers=4 if not DEBUG else 0,
+    persistent_workers=False,
+    drop_last=False,
+    sampler=dict(type="DefaultSampler", shuffle=False),
+    dataset=dict(
+        type=dataset_type,
+        data_root=data_root,
+        ann_file=test_ann_file,
+        pipeline=[
+            dict(type="LoadAnnotations3D"),
+            dict(
+                type="MultiViewPipeline",
+                n_images=1,
+                max_n_images=50,
+                ordered=True,
+                transforms=[
+                    dict(type="LoadImageFromFile", backend_args=backend_args),
+                    dict(type="LoadDepthFromFile", backend_args=backend_args),
+                    resize,
+                ],
+                rotate_3rscan=rotate_3rscan,
+            ),
+            dict(
+                type="Pack3DDetInputs",
+                keys=["img", "depth_img", "gt_bboxes_3d", "gt_labels_3d", "slam3r_feature"],
+            ),
+        ],
+        test_mode=True,
+        filter_empty_gt=True,
+        box_type_3d="Euler-Depth",
+        metainfo=metainfo,
+        mode="grounding",
+        vg_file=test_vg_file,
+    ),
+)
+
+val_evaluator = dict(
+    type="GroundingMetric",
+    collect_dir="./job_data/.dist_test" if not DEBUG else None,
+)
 
 test_evaluator = dict(
     type="GroundingMetric",
-    collect_dir="/job_data/.dist_test" if not DEBUG else None,
-    format_only=True,
+    collect_dir="./job_data/.dist_test" if not DEBUG else None,
+    format_only=False,
     submit_info={
         'method': 'BIP3D',
         'team': 'robot-lab manipulation team',
@@ -323,13 +474,30 @@ test_evaluator = dict(
         'institution': 'Horizon',
         'country': 'China',
     },
-    result_dir="/job_data" if not DEBUG else "./",
+    result_dir="./job_data" if not DEBUG else "./",
 )
 
-max_epochs = 2
+max_epochs = 10
+train_cfg = dict(
+    type="EpochBasedTrainLoop", max_epochs=max_epochs, val_interval=1
+)
+val_cfg = dict(type="ValLoop")
 test_cfg = dict(type="TestLoop")
 
 lr = 2e-4
+optim_wrapper = dict(
+    type="OptimWrapper",
+    optimizer=dict(type="AdamW", lr=lr, weight_decay=0.0005),
+    paramwise_cfg=dict(
+        custom_keys={
+            "backbone.": dict(lr_mult=0.1),
+            # "text_encoder": dict(lr_mult=0.05),
+            "absolute_pos_embed": dict(decay_mult=0.0),
+        }
+    ),
+    clip_grad=dict(max_norm=10, norm_type=2),
+)
+
 
 # learning rate
 param_scheduler = [
@@ -348,13 +516,13 @@ param_scheduler = [
 
 custom_hooks = [dict(type="EmptyCacheHook", after_iter=False)]
 default_hooks = dict(
-    checkpoint=dict(type="CheckpointHook", interval=1, max_keep_ckpts=3),
+    checkpoint=dict(type="CheckpointHook", by_epoch=False, interval=1000, max_keep_ckpts=3),
 )
 
 vis_backends = [
     dict(
-        type="TensorboardVisBackend",
-        save_dir="/job_tboard" if not DEBUG else "./work-dir",
+        type='WandbVisBackend',
+        save_dir="./job_tboard" if not DEBUG else "./work-dir-debug",
     ),
 ]
 
@@ -364,4 +532,4 @@ visualizer = dict(
     name="visualizer",
 )
 
-load_from = "ckpt/bip3d_det.pth"
+# load_from = "ckpt/bip3d_det.pth"

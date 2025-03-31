@@ -452,7 +452,7 @@ class EmbodiedScanDetGroundingDataset(BaseDataset):
             language_annotations = output
         self.data_list = []
         for item in language_annotations:
-            if 'scene0415_00' in item['scan_id']:
+            if 'scene000' in item['scan_id']:
                 self.data_list.append(item)
             else:
                 pass
@@ -488,6 +488,7 @@ class EmbodiedScanDetGroundingDataset(BaseDataset):
             )
             self.flag.extend([flag] * len(ids))
         self.data_list = data_list
+        print('datalist:', len(self.data_list))
         self.flag = np.array(self.flag)
 
     def get_data_info_continuous(self, data_info):

@@ -100,12 +100,14 @@ class BIP3D(BaseDetector):
         B, N, _ = slam3r_feature.shape
         # print('***************************************')
         # print(B,N)
-        slam3r_feature = slam3r_feature.view(B, N, 1024, 14 , 14)
-        slam3r_feature = F.pixel_shuffle(slam3r_feature, 32)
+        slam3r_feature = slam3r_feature.view(B, N, 1024, 14 , 14) # [1, 50, 1024, 14, 14]
+        slam3r_feature = F.pixel_shuffle(slam3r_feature, 32) 
         slam3r_feature = slam3r_feature.view(B, N, 448, 448)
         slam3r_feature = F.interpolate(slam3r_feature, size=(512, 512), mode='bilinear', align_corners=False)
         slam3r_feature = slam3r_feature.unsqueeze(2)
-        # input_3d = batch_inputs_dict.get(self.input_3d)
+
+        # input_3d = batch_inputs_dict.get(self.input_3d) # [1, 50, 1, 512, 512]
+
         input_3d = slam3r_feature
         if self.backbone_3d is not None and input_3d is not None:
             if self.input_3d == "depth_img" and input_3d.dim() == 5:
