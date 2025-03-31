@@ -185,7 +185,7 @@ class EmbodiedScanDetGroundingDataset(BaseDataset):
         extrinsics = []
         # /mnt/public/yhz/jiangzj/code/3d_understanding/SLAM3R/result_scannet/scene0000_01/preds/slam3r_features.npy
         scene_name = re.search(r'scene\d{4}_\d{2}', info["images"][0]["img_path"]).group()
-        slam3r_feature = np.load(f'/mnt/public/yhz/jiangzj/code/3d_understanding/SLAM3R/result_scannet/{scene_name}/preds/slam3r_features.npy')
+        slam3r_feature = np.load(f'data/slam3r/{scene_name}/slam3r_features.npy')
         info["slam3r_feature"] = []
         for i in range(len(info["images"])):
             img_path = os.path.join(
