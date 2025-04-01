@@ -21,7 +21,7 @@ max_depth = 10
 num_depth = 64
 
 model = dict(
-    type="BIP3D",
+    type="BIP3DConv",
     input_3d="depth_img",
     use_depth_grid_mask=True,
     data_preprocessor=dict(
@@ -36,7 +36,7 @@ model = dict(
     ),
     backbone=dict(
         type="mmdet.SwinTransformer",
-        freeze_all=True,
+        # freeze_all=True,
         embed_dims=96,
         depths=[2, 2, 6, 2],
         num_heads=[3, 6, 12, 24],
@@ -54,7 +54,7 @@ model = dict(
     ),
     neck=dict(
         type="mmdet.ChannelMapper",
-        freeze_all=True,
+        # freeze_all=True,
         in_channels=[192, 384, 768],
         kernel_size=1,
         out_channels=256,
@@ -65,7 +65,7 @@ model = dict(
     ),
     text_encoder=dict(
         type="BertModel",
-        freeze_all=True,
+        # freeze_all=True,
         special_tokens_list=["[CLS]", "[SEP]"],
         name="./ckpt/bert-base-uncased",
         pad_to_max=False,
@@ -78,7 +78,7 @@ model = dict(
     backbone_3d=(
         dict(
             type="mmdet.ResNet",
-            freeze_all=True,
+            # freeze_all=True,
             depth=34,
             in_channels=1,
             base_channels=4,
@@ -95,7 +95,7 @@ model = dict(
     neck_3d=(
         dict(
             type="mmdet.ChannelMapper",
-            freeze_all=True,
+            # freeze_all=True,
             in_channels=[8, 16, 32],
             kernel_size=1,
             out_channels=32,
@@ -109,7 +109,7 @@ model = dict(
     ),
     feature_enhancer=dict(
         type="TextImageDeformable2DEnhancer",
-        freeze_all=True,
+        # freeze_all=True,
         num_layers=6,
         text_img_attn_block=dict(
             v_dim=256, l_dim=256, embed_dim=1024, num_heads=4, init_values=1e-4
@@ -136,7 +136,7 @@ model = dict(
     ),
     spatial_enhancer=dict(
         type="DepthFusionSpatialEnhancer",
-        freeze_all=True,
+        # freeze_all=True,
         embed_dims=256,
         feature_3d_dim=32,
         num_depth_layers=2,
@@ -148,7 +148,7 @@ model = dict(
     ),
     decoder=dict(
         type="BBox3DDecoder",
-        freeze_all=True,
+        # freeze_all=True,
         look_forward_twice=True,
         instance_bank=dict(
             type="InstanceBank",
@@ -495,10 +495,22 @@ train_cfg = dict(
 val_cfg = dict(type="ValLoop")
 test_cfg = dict(type="TestLoop")
 
-lr = 2e-3
+lr = 1e-3
 optim_wrapper = dict(
     type="OptimWrapper",
     optimizer=dict(type="AdamW", lr=lr, weight_decay=0.0005),
+    paramwise_cfg=dict(
+        custom_keys={
+            'backbone': dict(lr_mult=0.0, decay_mult=0),
+            'neck': dict(lr_mult=0.0, decay_mult=0),
+            'text_encoder': dict(lr_mult=0.0, decay_mult=0),
+            'neck_3d': dict(lr_mult=0.0, decay_mult=0),
+            'backbone_3d': dict(lr_mult=0.0, decay_mult=0),
+            'feature_enhancer': dict(lr_mult=0.0, decay_mult=0),
+            'spatial_enhancer': dict(lr_mult=0.0, decay_mult=0),
+            'decoder': dict(lr_mult=0.0, decay_mult=0),
+        }
+    ),
     clip_grad=dict(max_norm=10, norm_type=2),
 )
 
