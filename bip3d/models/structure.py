@@ -27,6 +27,7 @@ class BIP3D(BaseDetector):
         embed_dims=256,
         use_img_grid_mask=False,
         use_depth_grid_mask=False,
+        slam3r_proj=None,
     ):
         super().__init__(data_preprocessor, init_cfg)
 
@@ -61,13 +62,14 @@ class BIP3D(BaseDetector):
             self.grid_mask = GridMask(
                 True, True, rotate=1, offset=False, ratio=0.5, mode=1, prob=0.7
             )
-        self.slam3r_proj = nn.Sequential(
-            nn.Conv2d(4, 16, kernel_size=3, padding=1),  # [h, w, 4] -> [h, w, 16]
-            nn.ReLU(),
-            nn.Conv2d(16, 32, kernel_size=3, padding=1), # [h, w, 16] -> [h, w, 32]
-            nn.ReLU(),
-            nn.Conv2d(32, 1, kernel_size=1) # [h, w, 32] -> [h, w, 1]
-        )
+        self.slam3r_proj = build(slam3r_proj)
+        # nn.Sequential(
+        #     nn.Conv2d(4, 16, kernel_size=3, padding=1),  # [h, w, 4] -> [h, w, 16]
+        #     nn.ReLU(),
+        #     nn.Conv2d(16, 32, kernel_size=3, padding=1), # [h, w, 16] -> [h, w, 32]
+        #     nn.ReLU(),
+        #     nn.Conv2d(32, 1, kernel_size=1) # [h, w, 32] -> [h, w, 1]
+        # )
 
     def init_weights(self):
         """Initialize weights for Transformer and other components."""
