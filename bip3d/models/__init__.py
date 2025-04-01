@@ -7,3 +7,5 @@ from .target import *
 from .data_preprocessors import *
 from .deformable_aggregation import *
 from .bert import *
+from .slam3r_proj import *
+from .structure_conv import *
